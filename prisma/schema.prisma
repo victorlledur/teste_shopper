@@ -11,16 +11,16 @@ datasource db {
 }
 
 model Packs {
-  id           Int         @id @default(autoincrement())
+  id           BigInt         @id @default(autoincrement())
+  pack_id      BigInt
   products     Products       @relation(fields: [product_id], references: [code])
-  product_id   String        
-  pack_id      String
-  qty          String  
+  product_id   BigInt        
+  qty          BigInt  
 }
 model Products {
-  code           String         @id
+  code           BigInt         @id
   name           String
-  cost_price     String
-  sales_price    String
+  cost_price     Decimal
+  sales_price    Decimal
   packs          Packs[]
 }

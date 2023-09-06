@@ -1,12 +1,17 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../database/index";
+import Decimal from 'decimal.js';
 
 const productController = {
-   
+
     async listProducts(req: Request, res: Response, next: NextFunction) {
         try {
             const listProducts = await prisma.products.findMany();
-            res.status(200).json(listProducts);
+            console.log(listProducts);
+            (BigInt.prototype as any).toJSON = function () {
+                return Number(this)
+            };
+            res.status(200).json(listProducts)
         } catch (error) {
             next(error);
         }
@@ -15,18 +20,23 @@ const productController = {
     async byIdProduct(req: Request, res: Response, next: NextFunction) {
         try {
 
-            const { code } = req.params;
-            code as unknown
+            const { id } = req.params;
+
+            if (!id || isNaN(Number(id))) {
+                res.status(400).json("Código de produto inválido");
+                return;
+            }
+            const parsedCode = BigInt(id);
+
+            (BigInt.prototype as any).toJSON = function () {
+                return Number(this)
+            };
 
             const product = await prisma.products.findUnique({
                 where: {
-                    code,
+                    code: parsedCode,
                 }
             });
-
-            if (!product) {
-                res.status(404).json("Não encontrado");
-            };
 
             res.status(200).json(product)
 
@@ -37,37 +47,97 @@ const productController = {
 
     async updateProduct(req: Request, res: Response, next: NextFunction) {
         try {
-            const { code } = req.params;
-            const { name, cost_price, sales_price} = req.body;
+            const { id }: any = req.params;
 
-            const product = await prisma.products.findUnique({
+            if (!id || isNaN(Number(id))) {
+                res.status(400).json("Código de produto inválido");
+                return;
+            }
+            const parsedCode = BigInt(id);
+
+            (BigInt.prototype as any).toJSON = function () {
+                return Number(this)
+            };
+
+            const { cost_price, sales_price } = req.body;
+
+            const product: any = await prisma.products.findUnique({
                 where: {
-                code,
+                    code: parsedCode,
                 }
             });
 
-            if (!product) {
-                res.status(400).json("não encontrado");
+            if (sales_price < cost_price || sales_price > product.sales_price * 1.1 || sales_price < product.sales_price * 0.9) {
+                res.status(400).json("mudança de preço não suportada!")
             };
+
+            const gapPrice: any = sales_price - product.sales_price
 
             const update = await prisma.products.update({
                 where: {
-                    code,
+                    code: parsedCode,
                 },
                 data: {
-                    name,
-                    cost_price,
-                    sales_price,                    
+                    sales_price,
                 }
             });
 
-            res.status(200).json({ result: update })
+            const pack: any = await prisma.packs.findMany({
+                where: {
+                    product_id: parsedCode,
+                },
+                include: {
+                    products: {
+                        select: {
+                            code: true,
+                            sales_price: true
+                        }
+                    }
+                }
+            });
+
+            if (!pack) {
+                res.status(200).json("Processo terminado com sucesso")
+            }
+
+            if (!pack[0] || pack[0].pack_id === null || pack[0].pack_id === undefined) {
+                res.status(400).json("Produto inválido");
+                return;
+            }
+
+            const packId = pack[0].pack_id;
+
+            const parsedPackId = BigInt(packId);
+
+            let calculatedSalesPrice: Decimal = new Decimal(0);
+            const qty = pack[0]?.qty;
+            if (qty !== undefined) {
+                const qtyDecimal = Number(qty);
+
+                if (gapPrice < 0) {
+                    calculatedSalesPrice = calculatedSalesPrice.add(sales_price * qtyDecimal);
+                  } else {
+                    calculatedSalesPrice = qtyDecimal * (sales_price + gapPrice.toFixed()) as any;
+                    calculatedSalesPrice as Decimal
+                  }
+
+            }
+
+            const updatePack = await prisma.products.updateMany({
+                where: {
+                    code: parsedPackId
+                },
+                data: {
+                    sales_price: new Decimal(calculatedSalesPrice)
+                }
+            })
+
+            res.status(200).json({ result: update, updatePack })
+
         } catch (error) {
             next(error);
         }
     },
 }
-
-    
 
 export default productController
