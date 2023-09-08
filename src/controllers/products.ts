@@ -7,7 +7,6 @@ const productController = {
     async listProducts(req: Request, res: Response, next: NextFunction) {
         try {
             const listProducts = await prisma.products.findMany();
-            console.log(listProducts);
             (BigInt.prototype as any).toJSON = function () {
                 return Number(this)
             };
@@ -19,7 +18,7 @@ const productController = {
 
     async byIdProduct(req: Request, res: Response, next: NextFunction) {
         try {
-
+            
             const { id } = req.params;
 
             if (!id || isNaN(Number(id))) {
@@ -36,7 +35,7 @@ const productController = {
                 where: {
                     code: parsedCode,
                 }
-            });
+            });            
 
             res.status(200).json(product)
 
@@ -47,97 +46,111 @@ const productController = {
 
     async updateProduct(req: Request, res: Response, next: NextFunction) {
         try {
-            const { id }: any = req.params;
-
-            if (!id || isNaN(Number(id))) {
-                res.status(400).json("Código de produto inválido");
-                return;
-            }
-            const parsedCode = BigInt(id);
-
-            (BigInt.prototype as any).toJSON = function () {
-                return Number(this)
-            };
-
-            const { cost_price, sales_price } = req.body;
-
-            const product: any = await prisma.products.findUnique({
-                where: {
-                    code: parsedCode,
-                }
-            });
-
-            if (sales_price < cost_price || sales_price > product.sales_price * 1.1 || sales_price < product.sales_price * 0.9) {
-                res.status(400).json("mudança de preço não suportada!")
-            };
-
-            const gapPrice: any = sales_price - product.sales_price
-
-            const update = await prisma.products.update({
-                where: {
-                    code: parsedCode,
+          const { id }: any = req.params;
+          console.log('JSON a ser enviado:', req.body);
+      
+          if (!id || isNaN(Number(id))) {
+            return res.status(400).json({ error: "Código de produto inválido" });
+          }
+      
+          const parsedCode = BigInt(id);
+      
+          (BigInt.prototype as any).toJSON = function () {
+            return Number(this);
+          };
+      
+          const product: any = await prisma.products.findUnique({
+            where: {
+              code: parsedCode,
+            },
+          });
+      
+          if (!product) {
+            return res.status(404).json({ error: "Produto não encontrado" });
+          }
+      
+          const { sales_price } = req.body;
+          console.log(`Preço de Venda Recebido: ${sales_price}`);
+      
+          if (
+            sales_price < product.cost_price ||
+            sales_price > product.sales_price * 1.1 ||
+            sales_price < product.sales_price * 0.9
+          ) {
+            return res.status(400).json({ error: "Mudança de preço não suportada!" });
+          }
+      
+          const gapPrice: any = sales_price - product.sales_price;
+      
+          const update = await prisma.products.update({
+            where: {
+              code: parsedCode,
+            },
+            data: {
+              sales_price,
+            },
+          });
+      
+          console.log("Atualização no Banco de Dados:", update);
+      
+          const pack: any = await prisma.packs.findMany({
+            where: {
+              product_id: parsedCode,
+            },
+            include: {
+              products: {
+                select: {
+                  code: true,
+                  sales_price: true,
                 },
-                data: {
-                    sales_price,
-                }
-            });
-
-            const pack: any = await prisma.packs.findMany({
-                where: {
-                    product_id: parsedCode,
-                },
-                include: {
-                    products: {
-                        select: {
-                            code: true,
-                            sales_price: true
-                        }
-                    }
-                }
-            });
-
-            if (!pack) {
-                res.status(200).json("Processo terminado com sucesso")
+              },
+            },
+          });
+      
+          if (!pack) {
+            return res.status(200).json({ message: "Processo terminado com sucesso" });
+          }
+      
+          if (!pack[0] || pack[0].pack_id === null || pack[0].pack_id === undefined) {
+            return res.status(400).json({ error: "Produto inválido" });
+          }
+      
+          const packId = pack[0].pack_id;
+      
+          const parsedPackId = BigInt(packId);
+      
+          let calculatedSalesPrice: Decimal = new Decimal(0);
+          const qty = pack[0]?.qty;
+          if (qty !== undefined) {
+            const qtyDecimal = Number(qty);
+      
+            if (gapPrice < 0) {
+              calculatedSalesPrice = calculatedSalesPrice.add(
+                sales_price * qtyDecimal
+              );
+            } else {
+              calculatedSalesPrice = new Decimal(
+                qtyDecimal * (sales_price + Number(gapPrice.toFixed()))
+              );
             }
-
-            if (!pack[0] || pack[0].pack_id === null || pack[0].pack_id === undefined) {
-                res.status(400).json("Produto inválido");
-                return;
-            }
-
-            const packId = pack[0].pack_id;
-
-            const parsedPackId = BigInt(packId);
-
-            let calculatedSalesPrice: Decimal = new Decimal(0);
-            const qty = pack[0]?.qty;
-            if (qty !== undefined) {
-                const qtyDecimal = Number(qty);
-
-                if (gapPrice < 0) {
-                    calculatedSalesPrice = calculatedSalesPrice.add(sales_price * qtyDecimal);
-                  } else {
-                    calculatedSalesPrice = qtyDecimal * (sales_price + gapPrice.toFixed()) as any;
-                    calculatedSalesPrice as Decimal
-                  }
-
-            }
-
-            const updatePack = await prisma.products.updateMany({
-                where: {
-                    code: parsedPackId
-                },
-                data: {
-                    sales_price: new Decimal(calculatedSalesPrice)
-                }
-            })
-
-            res.status(200).json({ result: update, updatePack })
-
+          }
+      
+          const updatePack = await prisma.products.updateMany({
+            where: {
+              code: parsedPackId,
+            },
+            data: {
+              sales_price: new Decimal(calculatedSalesPrice),
+            },
+          });
+      
+          console.log("Atualização de Pacote no Banco de Dados:", updatePack);
+      
+          return res.status(200).json({ result: update, updatePack });
         } catch (error) {
-            next(error);
+          next(error);
         }
-    },
+      }
 }
 
 export default productController
