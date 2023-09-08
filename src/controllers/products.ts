@@ -47,7 +47,6 @@ const productController = {
     async updateProduct(req: Request, res: Response, next: NextFunction) {
         try {
           const { id }: any = req.params;
-          console.log('JSON a ser enviado:', req.body);
       
           if (!id || isNaN(Number(id))) {
             return res.status(400).json({ error: "Código de produto inválido" });
@@ -70,7 +69,6 @@ const productController = {
           }
       
           const { sales_price } = req.body;
-          console.log(`Preço de Venda Recebido: ${sales_price}`);
       
           if (
             sales_price < product.cost_price ||
@@ -87,11 +85,10 @@ const productController = {
               code: parsedCode,
             },
             data: {
-              sales_price,
+              sales_price: sales_price,
             },
           });
       
-          console.log("Atualização no Banco de Dados:", update);
       
           const pack: any = await prisma.packs.findMany({
             where: {
@@ -112,7 +109,7 @@ const productController = {
           }
       
           if (!pack[0] || pack[0].pack_id === null || pack[0].pack_id === undefined) {
-            return res.status(400).json({ error: "Produto inválido" });
+            return res.status(200).json({ error: "Produto sem pack" });
           }
       
           const packId = pack[0].pack_id;
@@ -142,9 +139,7 @@ const productController = {
             data: {
               sales_price: new Decimal(calculatedSalesPrice),
             },
-          });
-      
-          console.log("Atualização de Pacote no Banco de Dados:", updatePack);
+          });     
       
           return res.status(200).json({ result: update, updatePack });
         } catch (error) {
