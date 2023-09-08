@@ -1,9 +1,10 @@
 import express from "express";
-import handleError from "./middlewares/handleError";
 import requestLog from "./middlewares/requestLog";
 import { prisma } from "./database/index";
 import routes from "./routes/";
 import cors from "cors"
+import { ERRORS } from "./constants/error";
+import { SUCCESS } from "./constants/success";
 
 async function main() {
     const app = express();
@@ -14,16 +15,15 @@ async function main() {
     const port = process.env.PORT?( process.env.PORT as unknown as number) : 4000;
     app.use(express.json());
     app.use(routes);
-    // app.use(handleError);
     
     try {
       await prisma.$connect();
-      console.log(`😄 Connected successfuly to the database!`);
+      console.log(`😄 ${SUCCESS.INDEX.CONNECT_SUCCESS}`);
     } catch (error) {
-      console.log(`😕 Failed connecting to the database! Please check the logs`, error);
+      console.log(`😕 ${ERRORS.INDEX.FAIL}`, error);
     }
     app.listen(port, async () => {
-      console.log(`🚀 Service started and listening at: http://127.0.0.1:${port}`);
+      console.log(`🚀 ${SUCCESS.INDEX.SERVICE_STARTED} http://127.0.0.1:${port}`);
       
     });
   }

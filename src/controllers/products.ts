@@ -1,6 +1,8 @@
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../database/index";
 import Decimal from 'decimal.js';
+import { ERRORS } from "../constants/error";
+import { SUCCESS } from "../constants/success";
 
 const productController = {
 
@@ -22,7 +24,7 @@ const productController = {
             const { id } = req.params;
 
             if (!id || isNaN(Number(id))) {
-                res.status(400).json("Código de produto inválido");
+                res.status(400).json(ERRORS.CONTROLLERS.PRODUCTS.INVALID_CODE);
                 return;
             }
             const parsedCode = BigInt(id);
@@ -49,7 +51,7 @@ const productController = {
           const { id }: any = req.params;
       
           if (!id || isNaN(Number(id))) {
-            return res.status(400).json({ error: "Código de produto inválido" });
+            return res.status(400).json({ error: ERRORS.CONTROLLERS.PRODUCTS.INVALID_CODE });
           }
       
           const parsedCode = BigInt(id);
@@ -65,7 +67,7 @@ const productController = {
           });
       
           if (!product) {
-            return res.status(404).json({ error: "Produto não encontrado" });
+            return res.status(404).json({ error: ERRORS.CONTROLLERS.PRODUCTS.NOT_FOUND });
           }
       
           const { sales_price } = req.body;
@@ -75,7 +77,7 @@ const productController = {
             sales_price > product.sales_price * 1.1 ||
             sales_price < product.sales_price * 0.9
           ) {
-            return res.status(400).json({ error: "Mudança de preço não suportada!" });
+            return res.status(400).json({ error: ERRORS.CONTROLLERS.PRODUCTS.CHANGE_NOT_SUPPORTED });
           }
       
           const gapPrice: any = sales_price - product.sales_price;
@@ -105,11 +107,11 @@ const productController = {
           });
       
           if (!pack) {
-            return res.status(200).json({ message: "Processo terminado com sucesso" });
+            return res.status(200).json({ message: SUCCESS.CONTROLLERS.PRODUCTS.FINISH_WITH_SUCCESS });
           }
       
           if (!pack[0] || pack[0].pack_id === null || pack[0].pack_id === undefined) {
-            return res.status(200).json({ error: "Produto sem pack" });
+            return res.status(200).json({ error: ERRORS.CONTROLLERS.PRODUCTS.NO_PACK });
           }
       
           const packId = pack[0].pack_id;
