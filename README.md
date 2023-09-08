@@ -6,7 +6,7 @@ Primeiramente baixe o conteúdo deste repositorio para a sua máquina. Considera
 
 Abra a pasta no VSCode ou em seu editor de codigos preferido.
 
-Abra o terminal e execute o comando "npm install" para instalar todas as dependencias necessárias.
+Abra o terminal e execute o comando "npm install" para instalar todas as dependências necessárias.
 
 Esse projeto usa como ORM o Prisma, então execute o comando "npx prisma generate" mara gerar os artefatos do Prisma na sua pasta node_modules.
 
